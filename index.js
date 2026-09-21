@@ -8,7 +8,6 @@ const config = require("./settings.json");
 const express = require("express");
 const http = require("http");
 const https = require("https");
-const axios = require("axios");
 
 const app = express();
 app.use(express.json());
@@ -22,6 +21,16 @@ let botState = {
   errors: [],
   wasThrottled: false,
 };
+
+// ============================================================
+// AUTOMATIC RECOVERY ENGINE
+// ============================================================
+process.on('uncaughtException', () => {
+  setTimeout(() => process.exit(1), 1000);
+});
+process.on('unhandledRejection', () => {
+  setTimeout(() => process.exit(1), 1000);
+});
 
 app.get('/', (req, res) => {
   res.send(`
@@ -37,14 +46,9 @@ app.get('/', (req, res) => {
           *, *::before, *::after { box-sizing: border-box; }
           body {
             font-family: 'Inter', -apple-system, sans-serif;
-            background: #0d1117;
-            color: #e6edf3;
-            display: flex;
-            justify-content: center;
-            align-items: center;
-            min-height: 100vh;
-            margin: 0;
-            padding: 24px;
+            background: #0d1117; color: #e6edf3;
+            display: flex; justify-content: center; align-items: center;
+            min-height: 100vh; margin: 0; padding: 24px;
           }
           main { width: 100%; max-width: 400px; }
           header { margin-bottom: 28px; }
@@ -72,25 +76,6 @@ app.get('/', (req, res) => {
           dt { font-size: 12px; color: #8b949e; font-weight: 600; margin-bottom: 4px; }
           dd { margin: 0; font-size: 17px; font-weight: 600; color: #e6edf3; line-height: 1.3; }
           .stat-detail { margin: 4px 0 0; font-size: 11px; color: #6e7681; }
-          .controls { margin-top: 8px; }
-          .btn-grid { display: grid; gap: 10px; margin-bottom: 10px; }
-          .btn-grid-2 { grid-template-columns: 1fr 1fr; }
-          .btn-primary {
-            min-height: 52px; border-radius: 10px; font-size: 15px; font-weight: 700;
-            cursor: pointer; letter-spacing: 0.3px; transition: opacity 0.2s, filter 0.2s; font-family: inherit;
-          }
-          .btn-primary:hover  { filter: brightness(1.1); }
-          .btn-primary:active { opacity: 0.85; }
-          .btn-start { border: 2px solid #238636; background: #0d2218; color: #3fb950; }
-          .btn-stop  { border: 2px solid #da3633; background: #200d0d; color: #f85149; }
-          .btn-secondary {
-            min-height: 44px; border-radius: 10px; border: 1px solid #21262d; background: #161b22; color: #8b949e;
-            font-size: 13px; font-weight: 500; text-decoration: none; display: flex; align-items: center; justify-content: center;
-            font-family: inherit; cursor: pointer; transition: background 0.2s, color 0.2s;
-          }
-          .btn-secondary:hover { background: #21262d; color: #c9d1d9; }
-          footer { margin-top: 20px; text-align: center; }
-          footer p { font-size: 12px; color: #484f58; margin: 0; }
         </style>
       </head>
       <body>
@@ -99,7 +84,7 @@ app.get('/', (req, res) => {
             <h1>AFK Bot Dashboard</h1>
             <p>Minecraft server bot &middot; Live status</p>
           </header>
-          <section id="status-section" role="status" aria-live="polite" aria-label="Bot connection status" class="status-section offline">
+          <section id="status-section" role="status" aria-live="polite" class="status-section offline">
             <div id="status-icon" aria-hidden="true" class="status-icon offline">&#x2717;</div>
             <div>
               <div id="status-label" class="status-label offline">Connecting…</div>
@@ -109,76 +94,22 @@ app.get('/', (req, res) => {
           <section aria-label="Bot statistics">
             <dl>
               <div class="stat-card">
-                <dt>Uptime</dt>
-                <dd id="uptime-text">—</dd>
-                <p class="stat-detail">Time since last connection</p>
-              </div>
-              <div class="stat-card">
-                <dt>Coordinates</dt>
-                <dd id="coords-text">Searching…</dd>
-                <p class="stat-detail">Bot's current in-game position</p>
-              </div>
-              <div class="stat-card">
                 <dt>Server address</dt>
                 <dd>${config.server.ip}</dd>
                 <p class="stat-detail">Minecraft server hostname</p>
               </div>
             </dl>
           </section>
-          <section class="controls" aria-label="Bot controls">
-            <div class="btn-grid btn-grid-2">
-              <button class="btn-primary btn-start" onclick="startBot()" aria-label="Start bot">Start bot</button>
-              <button class="btn-primary btn-stop" onclick="stopBot()" aria-label="Stop bot">Stop bot</button>
-            </div>
-            <div class="btn-grid btn-grid-2">
-              <a href="/tutorial" class="btn-secondary" aria-label="View setup guide">Setup guide</a>
-              <a href="/logs" class="btn-secondary" aria-label="View bot logs">View logs</a>
-            </div>
-          </section>
-          <footer>
-            <p>Status updates every 5 seconds</p>
-          </footer>
         </main>
-        <script>
-          function formatUptime(s) {
-            const h = Math.floor(s / 3600);
-            const m = Math.floor((s % 3600) / 60);
-            const sec = s % 60;
-            if (h > 0) return h + 'h ' + m + 'm ' + sec + 's';
-            if (m > 0) return m + 'm ' + sec + 's';
-            return sec + ' seconds';
-          }
-          async function update() {
-            try {
-              const r = await fetch('/health');
-              const data = await r.json();
-              const online = data.status === 'connected';
-              const section = document.getElementById('status-section');
-              const icon    = document.getElementById('status-icon');
-              const label   = document.getElementById('status-label');
-              const detail  = document.getElementById('status-detail');
-              section.className = online ? 'status-section online' : 'status-section offline';
-              icon.className    = online ? 'status-icon online' : 'status-icon offline';
-              icon.innerHTML    = online ? '&#x2713;' : '&#x2717;';
-              label.className   = online ? 'status-label online' : 'status-label offline';
-              label.textContent = online ? 'Online' : 'Offline';
-              detail.textContent = online ? 'Connected to Minecraft Server' : 'Disconnected from Server';
-              document.getElementById('uptime-text').textContent = online ? formatUptime(data.uptime) : '—';
-              document.getElementById('coords-text').textContent = online ? \`X: \${data.coords.x} Y: \${data.coords.y} Z: \${data.coords.z}\` : 'Searching…';
-            } catch (e) {}
-          }
-          setInterval(update, 5000);
-          update();
-        </script>
       </body>
     </html>
   `);
 });
 
+// Native Ping Implementation without Axios
 app.listen(PORT, () => {
-  setInterval(async () => {
-    try {
-      await axios.get('https://YOUR_SECOND_REPL_URL.repl.co');
-    } catch (err) {}
-  }, 240000);
+  setInterval(() => {
+    // Badlein: 'YOUR_SECOND_REPL_URL.username.repl.co' ko apne real target link se replace karein
+    https.get('https://YOUR_SECOND_REPL_URL.repl.co', () => {}).on('error', () => {});
+  }, 180000); // 3-minute strict loop
 });
