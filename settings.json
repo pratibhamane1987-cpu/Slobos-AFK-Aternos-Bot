@@ -6,8 +6,8 @@
     "type": "offline"
   },
   "server": {
-    "ip": "jayboy9129.aternos.me",
-    "port": 35164,
+    "ip": "GEMSMP10.aternos.me",
+    "port": 25784,
     "version": "",
     "try-creative": false
   },
@@ -31,9 +31,9 @@
       "repeat": true,
       "repeat-delay": 120,
       "messages": [
-        "I'm a regular player",
-        "Subscribe to Slobos!",
-        "I like to play Minecraft!"
+        "DO NOT CHEAT AND HACK",
+        "THIS IS A GEMSMP!",
+        "CHECK OUT OUR STORE!"
       ]
     },
     "chat-log": true,
